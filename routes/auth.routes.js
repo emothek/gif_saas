@@ -2,6 +2,7 @@ const { verifySignUp } = require("../middlewares");
 const controller = require("../controllers/auth.controller");
 
 const { validate, valiationRules } = require('../middlewares/signup.validation')
+const { signinValidate, signinValidationRules } = require('../middlewares/signin.validation')
 
 module.exports = function(app) {
   app.use(function(req, res, next) {
@@ -24,5 +25,11 @@ module.exports = function(app) {
     controller.signup
   );
 
-  app.post("/api/auth/signin", controller.signin);
+  app.post("/api/auth/signin", 
+    [
+      signinValidationRules(),
+      signinValidate, 
+    ], 
+    controller.signin
+  );
 };
