@@ -4,6 +4,7 @@ var cors = require("cors");
 // Extract the exec function from the child_process module
 const spawn = require("child_process").spawn;
 const exec = require("child_process").exec;
+
  
 const nanoid = require('nanoid').nanoid;
 //
@@ -74,6 +75,10 @@ function initial() {
 
 require('./routes/auth.routes')(app);
 require('./routes/user.routes')(app);
+require('./routes/gif.routes')(app);
+
+
+
 
 const download = (url, start, duration, filename) => {
 
@@ -133,17 +138,7 @@ const convert = (filename, output, start='00:00:00', duration='00:00:05', resolu
 
     return new Promise ((resolve, reject) => {
         let cmd = null;
-        
-
-/*ffmpeg -y -i text.mp4  -i watermark.png -pix_fmt rgb8 -r 10 -s 500x300 
--t 00:00:05 
--filter_complex "[1][0]scale2ref=h=ow/mdar:w=iw/4[#A logo][bird];
-[#A logo]format=argb,colorchannelmixer=aa=0.75[#B logo transparent];
-[bird][#B logo transparent]overlay=(main_w-w)-(main_w*0.1):(main_h-h)-(main_h*0.1)[out];
-[out]drawtext="fontfile=./fonts/times.ttf": text='JIMMM ': 
-fontcolor=white: fontsize='150': box=1: boxcolor=black@0.1: 
-boxborderw=5: x=(w-text_w)/2: y=(h-text_h)/1.4" -codec:a -o text.gif
-*/
+ 
 
         if(text){
             console.log('here =========>')
@@ -215,12 +210,15 @@ boxborderw=5: x=(w-text_w)/2: y=(h-text_h)/1.4" -codec:a -o text.gif
             console.log(res)
             console.log(signal)
             if(res === 0){
+
                 resolve({event:'Success', success: true, filename: output})
                 garbageCollector(filename).then(e=> {
                     console.log(e)
                 }).catch(err=> {
                     console.log(err)
                 })
+
+
             }else{
                 reject({event:'Error', success: false, msg: signal})
                 garbageCollector(filename).then(e=> {
@@ -235,10 +233,12 @@ boxborderw=5: x=(w-text_w)/2: y=(h-text_h)/1.4" -codec:a -o text.gif
 
   
 
-app.post('/', (req, res) => {
+
+app.post('/convert', (req, res) => {
 
     console.log(req.body)
-    const { url , start , duration, text, fps, resolution, tags, font, fontSize, fontColor } = req.body;
+    const { url , start , duration, text, fps,
+         resolution, font, fontSize, fontColor } = req.body;
  
  
     const video_url = url ? url : 'https://www.youtube.com/watch?v=oHg5SJYRHA0';
@@ -248,9 +248,8 @@ app.post('/', (req, res) => {
     const _font = font || 'TrainOne-Regular';
     const _fontSize = fontSize || 54;
     const _fontColor = fontColor || 'white';
-    const r = resolution || '400x300'
-    const f = fps || '10'
-    const kw = tags || '';
+    const r = resolution || '400x300';
+    const f = fps || '10';
 
     const fname = nanoid();
  
@@ -261,10 +260,11 @@ app.post('/', (req, res) => {
         //console.log(res_file)
         if(res_file.success){
 
-            convert(res_file.filename, `./${process.env.UPLOAD_FOLDER}/${fname}.gif`, undefined, undefined, r, f, t, watermark, `${_font}`, _fontSize, _fontColor).then(res_gif=>{
-                //console.log(res_gif)
-                //res.send(res_gif);
-                res.status(200).json(res_gif)
+            convert(res_file.filename, `./${process.env.UPLOAD_FOLDER}/${fname}.gif`,
+             undefined, undefined, r, f, t, 
+             watermark, `${_font}`, _fontSize, _fontColor).then(res_gif=>{
+
+                res.status(200).json(res_gif) 
 
             }).catch(err=>{
                 //console.log(err)
@@ -282,10 +282,31 @@ app.post('/', (req, res) => {
 
 });
 
+ 
 app.get('/gifs/:id', function(req, res){
     const file = `${__dirname}/gifs/${req.params.id}`;
-    res.download(file); // Set disposition and send it.
+    res.download(file)
+});
+
+
+  app.post('/delete', function(req, res){
+      let f = req.body.url && req.body.url;
+      f = f.substr(f.indexOf('gifs/'));
+      
+    const file = `${__dirname}/${f}`;
+    garbageCollector(file).then(e=> {
+        console.log(e)
+        res.status(200).json(e)
+    }).catch(err=> {
+        console.log(err)
+    })
+
+
   });
+
+  
+
+
 
 app.listen(port, () => console.log(`Hello world app listening on port ${port}!`))
 

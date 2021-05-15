@@ -7,6 +7,8 @@ db.mongoose = mongoose
 
 db.user = require('./user.model')
 db.role = require('./role.model')
+db.gif = require('./gif.model')
+
 
 db.ROLES = ['user', 'admin', 'superadmin']
 
