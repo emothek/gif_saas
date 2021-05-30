@@ -6,6 +6,7 @@ const spawn = require("child_process").spawn;
 const exec = require("child_process").exec;
 
  
+ 
 const nanoid = require('nanoid').nanoid;
 //
 const express = require('express');
@@ -80,18 +81,79 @@ require('./routes/gif.routes')(app);
 
 
 
-const download = (url, start, duration, filename) => {
+const previewTwitter = (url) => {
+    console.log(url)
+    return new Promise (function (resolve, reject){
+        let cmd = `gallery-dl -g ${url}`
+
+ 
+        if(!cmd){
+            reject({event:'Error', success: false, msg: 'Error '})
+            return false;
+        }
+        let _url = null;
+        exec(cmd, (err, stdout, stderr) => {
+                console.log('stdout is:' + stdout)
+                _url = stdout.trim();
+                console.log('stderr is:' + stderr)
+                console.log('error is:' + err)
+            }).on('exit', code => {
+                console.log('final exit code is', code)
+            })
+            .on('close', (res,signal) => {
+                console.log(res)
+                console.log(signal)
+                if(res === 0)
+                    resolve({event:'Success', success: true, url: _url})
+                else
+                    reject({event:'Error', success: false, msg: signal})
+            }).on('error', err => {
+                reject({event:'Error', success: false, msg: err})
+            })
+
+     })
+    
+}
+
+
+
+app.post('/previewTwitter', (req, res)=>{
+    const { twitter_url } = req.body;
+    
+    previewTwitter(twitter_url).then(result=>{
+        console.log(result)
+        return res.status(200).json({event: 'success', success: true, url: result.url})
+
+    }).catch(err=>{
+
+        console.log(err)
+        return res.status(400).json({message: err})
+    })
+
+})
+
+
+const download = (url, start, duration, filename, twitter=false) => {
 
     return new Promise (function (resolve, reject){
 
         // validate youtube URL before exec_process
         //let childProcess = exec()
         //console.log('.....')
-        const cmd = `ffmpeg $(youtube-dl -g ${url} | sed 's/.*/-ss ${start} -i &/') -strict -2 -t ${duration} -c copy '${filename}'`
-        const cmd_ = `youtube-dl '${url}' --external-downloader ffmpeg --external-downloader-args "-ss ${start} -t ${duration}" --output ${filename}`
+        let cmd = null;
+        if(twitter){
+            cmd = `ffmpeg $(gallery-dl -g ${url} | sed 's/.*/-ss ${start} -i &/') -strict -2 -t ${duration} -c copy '${filename}'`
+        }else{
+            cmd = `ffmpeg $(youtube-dl -g ${url} | sed 's/.*/-ss ${start} -i &/') -strict -2 -t ${duration} -c copy '${filename}'`
+        }
+        //const cmd_ = `youtube-dl '${url}' --external-downloader ffmpeg --external-downloader-args "-ss ${start} -t ${duration}" --output ${filename}`
         // redirect transcoded ip-cam stream to http response
         //childProcess.stdout.pipe(res);
  
+        if(!cmd){
+            reject({event:'Error', success: false, msg: 'Error '})
+            return false;
+        }
 
         exec(cmd, (err, stdout, stderr) => {
                 console.log('stdout is:' + stdout)
@@ -236,10 +298,8 @@ const convert = (filename, output, start='00:00:00', duration='00:00:05', resolu
 
 app.post('/convert', (req, res) => {
 
-    console.log(req.body)
     const { url , start , duration, text, fps,
          resolution, font, fontSize, fontColor } = req.body;
- 
  
     const video_url = url ? url : 'https://www.youtube.com/watch?v=oHg5SJYRHA0';
     const s = start || '00:00:00'
